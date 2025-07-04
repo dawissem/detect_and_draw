@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  thinker-paint:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: thinker-paint-app
+    restart: unless-stopped
+    
+    # Accès caméra et GUI
+    privileged: true
+    
+    # Variables d'environnement
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - PYTHONUNBUFFERED=1
+      
+    # Volumes pour persistance
+    volumes:
+      - ./peintures:/app/peintures
+      - ./captures:/app/captures
+      - ./metadata:/app/metadata
+      - ./auto_saves:/app/auto_saves
+      - ./logs:/app/logs
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /dev/video0:/dev/video0  # Webcam
+      
+    # Accès périphériques
+    devices:
+      - /dev/video0:/dev/video0
+      
+    # Réseau
+    ports:
+      - "8080:8080"  # Pour interface web future
+      
+    # Commande par défaut
+    command: python thinker_paint_docker.py
+    
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "python", "-c", "import cv2; import mediapipe"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service pour interface web (optionnel)
+  thinker-paint-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: thinker-paint-web
+    restart: unless-stopped
+    
+    environment:
+      - PYTHONUNBUFFERED=1
+      
+    volumes:
+      - ./peintures:/app/peintures
+      - ./captures:/app/captures
+      
+    ports:
+      - "5000:5000"
+      
+    command: python thinker_paint_web.py
+    
+    depends_on:
+      - thinker-paint
